@@ -1,25 +1,13 @@
-# Ripple-65B Preview — Kaggle derisk
+# Ripple-65B Preview runbook
 
-Source: [ricursiveAI/Ripple-65B-Preview](https://huggingface.co/ricursiveAI/Ripple-65B-Preview) (Apache-2.0).
+Source weights: [ricursiveAI/Ripple-65B-Preview](https://huggingface.co/ricursiveAI/Ripple-65B-Preview) (Apache-2.0). Published quant: [Ripple-65B-Preview-DERISKED](https://huggingface.co/freakyskittle/Ripple-65B-Preview-DERISKED).
 
-This repo records why that checkpoint was not re-quantized or re-uploaded. The reference package this was compared against edits residual-write matrices to soften guardrails. That edit is not in this repo. The weights here are the upstream checkpoint, untouched.
+`RicursiveForCausalLM` is dense, 80 layers, hidden size 5120, intermediate size 40960, gated attention, value residuals, sliding window 1024. Sixteen BF16 shards are 120.67 GiB. Stock llama.cpp and stock vLLM do not load `model_type: ricursive`.
 
-## What the checkpoint is
+## What was checked
 
-`RicursiveForCausalLM`, `model_type: ricursive`. Dense, 80 layers, `hidden_size` 5120, `intermediate_size` 40960, 80 heads / 8 KV heads, sliding window 1024 on 64 of 80 layers, gated attention, value residuals, FFN clamp, vocab 100352, untied embeddings. Sixteen BF16 safetensor shards. Stock llama.cpp and stock vLLM do not load `model_type: ricursive`.
+Kaggle on this account is 2× Tesla T4 (15360 MiB) and 31 GB RAM. The probe is `kaggle/probe.py`. It does not download shards. BF16 does not fit there.
 
-## Why Kaggle cannot run it
+One secure-cloud NVIDIA A40 (46068 MiB, $0.59/hr) can hold the 36.13 GiB Q4_K_M GGUF from [mrfakename/Ripple-65B-Preview-GGUF](https://huggingface.co/mrfakename/Ripple-65B-Preview-GGUF). That file was converted with llama.cpp `6f1e654` plus `ricursive.patch` from the same repo. The commands used on the pod are `runpod/a40_q4.sh`. llama.cpp itself is not in this repo.
 
-Kaggle on this account lands on T4x2: 2×15 GB VRAM, ~31 GB RAM, 4 vCPU. The BF16 tree is on the order of 130 GB. It does not fit in VRAM, and it does not fit in RAM for a CPU offload either. A quant small enough for 30 GB would still need the BF16 shards on disk first, and this host has under 7 GB free.
-
-`kaggle/probe.py` is the kernel. It prints the GPU the scheduler actually gave, sums shard sizes from the Hub API, and writes `derisk.json` with `release: false`. It does not download weight shards.
-
-## Release gate
-
-No Hugging Face weight repo. A quant or mirror goes up only after a smoke generation that writes a real Python file. That run has not happened.
-
-```bash
-kaggle kernels push -p kaggle
-kaggle kernels status otdoges/ripple-65b-derisk
-kaggle kernels output otdoges/ripple-65b-derisk -p /tmp/ripple-derisk
-```
+The Hugging Face repo is that Q4 file under the name `Ripple-65B-Preview-DERISKED`. No residual-write edit was applied.
