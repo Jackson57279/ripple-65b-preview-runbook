@@ -6,7 +6,7 @@ import urllib.request
 
 REPO = "ricursiveAI/Ripple-65B-Preview"
 API = f"https://huggingface.co/api/models/{REPO}"
-CFG = f"https://huggingface.co/api/models/{REPO}/raw/main/config.json"
+CFG = f"https://huggingface.co/{REPO}/resolve/main/config.json"
 
 
 def sh(argv):
@@ -34,9 +34,13 @@ shards = [n for n in names if n and n.startswith("model-") and n.endswith(".safe
 total = 0
 for name in shards:
     url = f"https://huggingface.co/{REPO}/resolve/main/{name}"
-    req = urllib.request.Request(url, method="HEAD")
+    req = urllib.request.Request(url, headers={"Range": "bytes=0-0"})
     with urllib.request.urlopen(req, timeout=120) as r:
-        n = int(r.headers.get("Content-Length") or 0)
+        cr = r.headers.get("Content-Range") or ""
+        if "/" in cr:
+            n = int(cr.rsplit("/", 1)[-1])
+        else:
+            n = int(r.headers.get("Content-Length") or 0)
     total += n
     print(f"shard {name} {n}")
 
